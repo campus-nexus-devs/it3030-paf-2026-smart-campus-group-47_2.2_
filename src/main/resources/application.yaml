@@ -1,3 +1,25 @@
 spring:
   application:
     name: it3030-paf-2026-smart-campus
+
+  datasource:
+    # XAMPP default port is 3306. campus_nexus_db will be created automatically.
+    url: jdbc:mysql://localhost:3306/campus_nexus_db?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true
+    username: root
+    # XAMPP default password is empty (leave it blank if you haven't set one)
+    password:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+
+  jpa:
+    hibernate:
+      # 'update' will create tables automatically based on our Entity classes
+      ddl-auto: update
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+        # Updated dialect to avoid version warnings
+        dialect: org.hibernate.dialect.MySQL8Dialect
+
+server:
+  port: 8080
