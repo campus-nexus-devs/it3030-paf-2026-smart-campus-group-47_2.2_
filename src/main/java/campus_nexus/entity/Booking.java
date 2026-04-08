@@ -15,18 +15,28 @@ public class Booking {
     private Long id;
 
     @ManyToOne
-    @JoinColumn(name = "resource_id", nullable = false)
-    private Resource resource;
-
-    @ManyToOne
     @JoinColumn(name = "user_id", nullable = false)
     private User user;
+
+    @ManyToOne
+    @JoinColumn(name = "resource_id", nullable = false)
+    private Resource resource;
 
     private LocalDate bookingDate;
     private LocalTime startTime;
     private LocalTime endTime;
     private String purpose;
 
+    // New fields for Industry Level Workflow
     @Enumerated(EnumType.STRING)
     private BookingStatus status;
+
+    private String rejectionReason;
+
+    @PrePersist
+    protected void onCreate() {
+        if (this.status == null) {
+            this.status = BookingStatus.PENDING; // Default status as per workflow
+        }
+    }
 }
