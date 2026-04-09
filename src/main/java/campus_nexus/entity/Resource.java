@@ -1,4 +1,3 @@
-
 package campus_nexus.entity;
 
 import campus_nexus.enums.ResourceType;

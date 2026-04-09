@@ -1,4 +1,5 @@
-package campus_nexus.dto;
+
+package campus_nexus.dto.response;
 
 import campus_nexus.enums.ResourceType;
 import lombok.Builder;

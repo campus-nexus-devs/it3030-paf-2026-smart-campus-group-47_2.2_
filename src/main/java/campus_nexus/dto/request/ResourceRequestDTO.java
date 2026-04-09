@@ -1,4 +1,4 @@
-package campus_nexus.dto;
+package campus_nexus.dto.request;
 
 import campus_nexus.enums.ResourceType;
 import jakarta.validation.constraints.*;
