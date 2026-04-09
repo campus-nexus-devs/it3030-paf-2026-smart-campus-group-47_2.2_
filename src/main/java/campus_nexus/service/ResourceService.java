@@ -22,6 +22,9 @@ public class ResourceService {
     @Autowired
     private ResourceRepository resourceRepository;
 
+    @Autowired
+    private AuditLogService auditLogService;
+
     /**
      * Create a new resource
      * @param resource Resource entity to save
@@ -43,6 +46,10 @@ public class ResourceService {
 
         Resource saved = resourceRepository.save(resource);
         logger.info("Created new resource: {} (ID: {})", saved.getName(), saved.getId());
+
+        // Audit log
+        auditLogService.log("CREATE_RESOURCE", "SYSTEM", "Created resource: " + saved.getName());
+
         return saved;
     }
 
@@ -101,6 +108,10 @@ public class ResourceService {
 
         Resource saved = resourceRepository.save(existing);
         logger.info("Updated resource ID: {} - {}", id, saved.getName());
+
+        // Audit log
+        auditLogService.log("UPDATE_RESOURCE", "SYSTEM", "Updated resource: " + saved.getName());
+
         return saved;
     }
 
@@ -117,6 +128,9 @@ public class ResourceService {
         }
         resourceRepository.deleteById(id);
         logger.info("Deleted resource ID: {}", id);
+
+        // Audit log
+        auditLogService.log("DELETE_RESOURCE", "SYSTEM", "Deleted resource ID: " + id);
     }
 
     /**
@@ -131,6 +145,10 @@ public class ResourceService {
         resource.setStatus(status);
         Resource saved = resourceRepository.save(resource);
         logger.info("Updated resource {} status to: {}", id, status);
+
+        // Audit log
+        auditLogService.log("UPDATE_RESOURCE_STATUS", "SYSTEM", "Resource ID " + id + " status changed to " + status);
+
         return saved;
     }
 
@@ -172,4 +190,5 @@ public class ResourceService {
         logger.debug("Fetching active resources");
         return resourceRepository.findByStatus("ACTIVE", pageable);
     }
+}
 }

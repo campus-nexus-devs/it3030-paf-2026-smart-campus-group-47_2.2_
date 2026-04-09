@@ -53,3 +53,4 @@ public interface ResourceRepository extends JpaRepository<Resource, Long> {
             @Param("hasAc") Boolean hasAc,
             Pageable pageable);
 }
+}
