@@ -26,6 +26,9 @@ public class BookingService {
     @Autowired
     private ResourceRepository resourceRepository;
 
+    @Autowired
+    private AuditLogService auditLogService;
+
     /**
      * Retrieve all bookings from the database for the admin dashboard.
      * @return List of all booking entities
@@ -37,7 +40,7 @@ public class BookingService {
     /**
      * Create a new booking request.
      * Initial status is set to PENDING and conflicts are checked before saving.
-     * * @param booking Booking details from request
+     * @param booking Booking details from request
      * @return Saved booking entity with PENDING status
      */
     public Booking createBooking(Booking booking) {
@@ -63,12 +66,23 @@ public class BookingService {
 
         // 3. Setting initial workflow status
         booking.setStatus(BookingStatus.PENDING);
-        return bookingRepository.save(booking);
+
+        Booking savedBooking = bookingRepository.save(booking);
+
+        // 4. Automatic Audit Logging
+        // Fetches updated resource and user info for the log description
+        auditLogService.log(
+                "CREATE_BOOKING",
+                booking.getUser().getEmail(),
+                "Booking ID " + savedBooking.getId() + " created for " + booking.getResource().getName()
+        );
+
+        return savedBooking;
     }
 
     /**
      * Professional Admin Action: Approve or Reject a booking request with a reason.
-     * * @param id Booking ID to update
+     * @param id Booking ID to update
      * @param status The new status (APPROVED/REJECTED)
      * @param reason Optional reason (highly recommended for Rejections)
      * @return Updated booking entity
@@ -80,7 +94,16 @@ public class BookingService {
         booking.setStatus(status);
         booking.setRejectionReason(reason);
 
-        return bookingRepository.save(booking);
+        Booking updatedBooking = bookingRepository.save(booking);
+
+        // Automatic Audit Logging for Admin Action
+        auditLogService.log(
+                "UPDATE_BOOKING_STATUS",
+                "ADMIN", // We will replace this with actual logged-in user email later
+                "Booking ID " + id + " status changed to " + status
+        );
+
+        return updatedBooking;
     }
 
     /**
@@ -91,6 +114,14 @@ public class BookingService {
         if (!bookingRepository.existsById(id)) {
             throw new RuntimeException("Cannot cancel! Booking not found with ID: " + id);
         }
+
+        // Automatic Audit Logging for Deletion
+        auditLogService.log(
+                "CANCEL_BOOKING",
+                "SYSTEM_USER", // We will replace this with actual logged-in user later
+                "Booking ID " + id + " was cancelled and removed"
+        );
+
         bookingRepository.deleteById(id);
     }
 }
