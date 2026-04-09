@@ -39,14 +39,6 @@ public class Resource {
 
     @Column(nullable = false)
     private String status = "ACTIVE";  // ACTIVE, OUT_OF_SERVICE, MAINTENANCE
-    private String description;
-    private Boolean hasWifi;
-    private Boolean hasAc;
-    private Boolean hasProjector;
-
-    // THIS FIELD IS CRITICAL - MAKE SURE IT EXISTS
-    @Column(nullable = false)
-    private String status = "ACTIVE";
 
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;
