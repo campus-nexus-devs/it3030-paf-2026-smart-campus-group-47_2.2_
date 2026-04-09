@@ -1,3 +1,4 @@
+
 package campus_nexus.entity;
 
 import campus_nexus.enums.ResourceType;
@@ -9,6 +10,7 @@ import java.time.LocalDateTime;
 @Data
 @Table(name = "resources")
 public class Resource {
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -21,7 +23,22 @@ public class Resource {
     private ResourceType type;
 
     private Integer capacity;
+
     private String location;
+
+    @Column(length = 500)
+    private String description;
+
+    @Column(nullable = false)
+    private Boolean hasWifi = false;
+
+    @Column(nullable = false)
+    private Boolean hasAc = false;
+
+    private Boolean hasProjector = false;
+
+    @Column(nullable = false)
+    private String status = "ACTIVE";  // ACTIVE, OUT_OF_SERVICE, MAINTENANCE
     private String description;
     private Boolean hasWifi;
     private Boolean hasAc;
@@ -37,6 +54,7 @@ public class Resource {
     @Column(nullable = false)
     private LocalDateTime updatedAt;
 
+    // Auto-set timestamps before persisting
     @PrePersist
     protected void onCreate() {
         createdAt = LocalDateTime.now();

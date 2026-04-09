@@ -154,6 +154,16 @@ public class ResourceService {
 
     /**
      * Advanced search with filters and pagination
+     * @param name Search by name (partial match)
+     * @param type Filter by resource type
+     * @param minCapacity Minimum capacity filter
+     * @param maxCapacity Maximum capacity filter
+     * @param location Filter by location (partial match)
+     * @param status Filter by status (ACTIVE/OUT_OF_SERVICE)
+     * @param hasWifi Filter by WiFi availability
+     * @param hasAc Filter by AC availability
+     * @param pageable Pagination and sorting info
+     * @return Page of resources matching criteria
      */
     public Page<Resource> searchResources(
             String name,
@@ -180,4 +190,5 @@ public class ResourceService {
         logger.debug("Fetching active resources");
         return resourceRepository.findByStatus("ACTIVE", pageable);
     }
+}
 }
