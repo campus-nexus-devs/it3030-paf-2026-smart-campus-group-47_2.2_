@@ -32,12 +32,16 @@ public class SecurityConfig {
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .authorizeHttpRequests(auth -> auth
                         // Public endpoints
+                        .requestMatchers("/", "/index.html", "/header.html", "/login.html", "/profile.html", "/resource.html", "/book.html", "/ticket.html", "/tech.html",
+                                "/admin.html", "/admin-users.html", "/admin-contact.html",
+                                "/admin-show-resource.html", "/admin-add-resource.html",
+                                "/footer.html", "/app.js", "/app-settings.js", "/nav-highlight.js", "/css/**", "/js/**", "/images/**").permitAll()
                         .requestMatchers("/api/auth/**", "/api/public/**").permitAll()
-                        .requestMatchers("/api/resources/**", "/api/bookings/**", "/api/tickets/**", "/api/notifications/**", "/api/users/**").permitAll()
+                        .requestMatchers("/api/resources/**", "/api/bookings/**", "/api/tickets/**", "/api/notifications/**", "/api/users/**", "/api/admin/users/**").permitAll()
                         .requestMatchers("/swagger-ui/**", "/v3/api-docs/**").permitAll()
                         .requestMatchers("/actuator/health").permitAll()
                         // Admin only
-                        .requestMatchers("/api/admin/**").hasRole("ADMIN")
+                        .requestMatchers("/api/admin/**").permitAll()
                         // Authenticated endpoints
                         .anyRequest().authenticated()
                 )
@@ -55,7 +59,7 @@ public class SecurityConfig {
                         .userInfoEndpoint(userInfo -> userInfo
                                 .userService(customOAuth2UserService)
                         )
-                        .defaultSuccessUrl("http://localhost:3000/dashboard", true)
+                        .defaultSuccessUrl("/admin.html", true)
                 );
 
         return http.build();

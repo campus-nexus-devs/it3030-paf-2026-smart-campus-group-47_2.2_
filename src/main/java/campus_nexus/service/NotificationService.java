@@ -229,6 +229,21 @@ public class NotificationService {
     }
 
     /**
+     * Technician updated ticket status or resolution notes — detailed message for inbox + bell history.
+     */
+    @Transactional
+    public void notifyTicketTechnicianActivity(Long ownerUserId, Long ticketId, LocalDateTime ticketCreatedAt,
+                                               LocalDateTime eventAt, String note, String action) {
+        String created = ticketCreatedAt != null ? ticketCreatedAt.toString() : "—";
+        String evt = eventAt != null ? eventAt.toString() : "—";
+        String noteLine = (note != null && !note.isBlank()) ? note : "—";
+        String message = String.format(
+                "Ticket #%d | Created: %s | Update: %s | Action: %s | Notes: %s",
+                ticketId, created, evt, action, noteLine);
+        createNotification(ownerUserId, NotificationType.TICKET_STATUS_UPDATED, message, "TICKET_" + ticketId);
+    }
+
+    /**
      * Create ticket-related notification
      */
     @Transactional

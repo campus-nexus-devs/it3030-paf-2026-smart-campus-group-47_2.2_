@@ -2,7 +2,7 @@ package campus_nexus.enums;
 
 /**
  * NotificationType enum defines all possible notification categories
- * in the Smart Campus Operations Hub.
+ * in the Campus Nexus operations hub.
  */
 public enum NotificationType {
 

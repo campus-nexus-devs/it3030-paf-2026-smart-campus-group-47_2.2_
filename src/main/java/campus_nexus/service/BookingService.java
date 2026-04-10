@@ -6,6 +6,7 @@ import campus_nexus.entity.Booking;
 import campus_nexus.entity.Resource;
 import campus_nexus.entity.User;
 import campus_nexus.enums.BookingStatus;
+import campus_nexus.enums.NotificationType;
 import campus_nexus.repository.BookingRepository;
 import campus_nexus.repository.ResourceRepository;
 import campus_nexus.repository.UserRepository;
@@ -44,6 +45,9 @@ public class BookingService {
 
     @Autowired
     private AuditLogService auditLogService;
+
+    @Autowired
+    private NotificationService notificationService;
 
     /**
      * Get all bookings with pagination (Admin only)
@@ -194,7 +198,35 @@ public class BookingService {
                 "Booking ID " + id + " status changed to " + status
         );
 
+        notifyBookingUserOfDecision(updatedBooking, status, reason);
+
         return convertToResponseDTO(updatedBooking);
+    }
+
+    private void notifyBookingUserOfDecision(Booking booking, BookingStatus status, String reason) {
+        Long userId = booking.getUser().getId();
+        String refId = String.valueOf(booking.getId());
+        String resourceName = booking.getResource().getName();
+        try {
+            if (status == BookingStatus.APPROVED) {
+                String message = String.format(
+                        "Your booking for \"%s\" on %s from %s to %s was approved.",
+                        resourceName,
+                        booking.getBookingDate(),
+                        booking.getStartTime(),
+                        booking.getEndTime());
+                notificationService.createNotification(userId, NotificationType.BOOKING_APPROVED, message, refId);
+            } else if (status == BookingStatus.REJECTED) {
+                String message = String.format(
+                        "Your booking for \"%s\" on %s was rejected. Reason: %s",
+                        resourceName,
+                        booking.getBookingDate(),
+                        reason != null ? reason.trim() : "");
+                notificationService.createNotification(userId, NotificationType.BOOKING_REJECTED, message, refId);
+            }
+        } catch (Exception e) {
+            logger.warn("Could not notify user {} about booking {} status {}: {}", userId, booking.getId(), status, e.getMessage());
+        }
     }
 
     /**

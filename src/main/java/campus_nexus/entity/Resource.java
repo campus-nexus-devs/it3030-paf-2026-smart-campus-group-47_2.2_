@@ -1,5 +1,6 @@
 package campus_nexus.entity;
 
+import campus_nexus.enums.ResourceReservationCategory;
 import campus_nexus.enums.ResourceType;
 import jakarta.persistence.*;
 import lombok.Data;
@@ -20,6 +21,9 @@ public class Resource {
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private ResourceType type;
+
+    @Enumerated(EnumType.STRING)
+    private ResourceReservationCategory category;
 
     private Integer capacity;
 
@@ -54,10 +58,12 @@ public class Resource {
         if (hasWifi == null) hasWifi = false;
         if (hasAc == null) hasAc = false;
         if (hasProjector == null) hasProjector = false;
+        if (category == null) category = ResourceReservationCategory.HALL_LAB;
     }
 
     @PreUpdate
     protected void onUpdate() {
         updatedAt = LocalDateTime.now();
+        if (category == null) category = ResourceReservationCategory.HALL_LAB;
     }
 }
