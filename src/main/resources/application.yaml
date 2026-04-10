@@ -1,6 +1,6 @@
 spring:
   application:
-    name: it3030-paf-2026-smart-campus
+    name: campus-nexus
 
   # Database Configuration
   datasource:
@@ -60,6 +60,17 @@ logging:
 
 # JWT Configuration (alternative flat structure)
 app:
+  resource-admin:
+    username: admin
+    password: 123456
+  portal-admin:
+    email: admin@gmail.com
+    password: 12345
+    full-name: System Admin
+  technician:
+    email: tech@gmail.com
+    password: 12345
+    full-name: Technician User
   jwt:
     secret: c8f7e5d3b1a9c7e5f3d1b9a7c5e3f1d9b7a5c3e1f9d7b5a3c1e9f7d5b3a1c9e7f5
     expiration-ms: 86400000

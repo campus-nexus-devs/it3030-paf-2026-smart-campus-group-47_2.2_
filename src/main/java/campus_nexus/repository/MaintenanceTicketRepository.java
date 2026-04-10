@@ -6,6 +6,7 @@ import campus_nexus.enums.TicketStatus;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
@@ -21,6 +22,10 @@ import java.util.Optional;
  */
 @Repository
 public interface MaintenanceTicketRepository extends JpaRepository<MaintenanceTicket, Long> {
+
+    @Modifying
+    @Query("DELETE FROM MaintenanceTicket t WHERE t.resource.id = :resourceId")
+    void deleteByResourceId(@Param("resourceId") Long resourceId);
 
     // ==================== Basic Find Methods ====================
 

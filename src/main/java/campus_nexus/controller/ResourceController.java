@@ -1,6 +1,7 @@
 package campus_nexus.controller;
 
 import campus_nexus.entity.Resource;
+import campus_nexus.enums.ResourceReservationCategory;
 import campus_nexus.enums.ResourceType;
 import campus_nexus.service.ResourceService;
 import jakarta.validation.Valid;
@@ -49,6 +50,7 @@ public class ResourceController {
      * - direction: asc/desc (default asc)
      * - name: search by name (optional)
      * - type: filter by resource type (optional)
+     * - category: reservation category (optional)
      * - minCapacity: minimum capacity (optional)
      * - maxCapacity: maximum capacity (optional)
      * - location: filter by location (optional)
@@ -64,6 +66,7 @@ public class ResourceController {
             @RequestParam(defaultValue = "asc") String direction,
             @RequestParam(required = false) String name,
             @RequestParam(required = false) ResourceType type,
+            @RequestParam(required = false) ResourceReservationCategory category,
             @RequestParam(required = false) Integer minCapacity,
             @RequestParam(required = false) Integer maxCapacity,
             @RequestParam(required = false) String location,
@@ -77,7 +80,7 @@ public class ResourceController {
         Pageable pageable = PageRequest.of(page, size, Sort.by(sortDirection, sort));
 
         Page<Resource> resourcePage = resourceService.searchResources(
-                name, type, minCapacity, maxCapacity, location, status, hasWifi, hasAc, pageable);
+                name, type, category, minCapacity, maxCapacity, location, status, hasWifi, hasAc, pageable);
 
         Map<String, Object> response = new HashMap<>();
         response.put("content", resourcePage.getContent());
