@@ -33,7 +33,7 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         // Public endpoints
                         .requestMatchers("/", "/index.html", "/header.html", "/login.html", "/profile.html", "/resource.html", "/book.html", "/ticket.html", "/tech.html",
-                                "/admin.html", "/admin-users.html", "/admin-contact.html",
+                                "/admin.html", "/admin-users.html", "/admin-bookings.html", "/admin-contact.html",
                                 "/admin-show-resource.html", "/admin-add-resource.html",
                                 "/footer.html", "/app.js", "/app-settings.js", "/nav-highlight.js", "/css/**", "/js/**", "/images/**").permitAll()
                         .requestMatchers("/api/auth/**", "/api/public/**").permitAll()
