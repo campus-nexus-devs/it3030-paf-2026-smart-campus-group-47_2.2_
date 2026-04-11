@@ -87,14 +87,16 @@ public class MaintenanceTicketController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size,
             @RequestParam(defaultValue = "createdAt") String sort,
-            @RequestParam(defaultValue = "desc") String direction) {
+            @RequestParam(defaultValue = "desc") String direction,
+            @RequestParam(defaultValue = "false") boolean includeClosed) {
 
-        logger.info("GET /api/tickets - page: {}, size: {}, sort: {}, direction: {}", page, size, sort, direction);
+        logger.info("GET /api/tickets - page: {}, size: {}, sort: {}, direction: {}, includeClosed: {}",
+                page, size, sort, direction, includeClosed);
 
         Sort.Direction sortDirection = direction.equalsIgnoreCase("asc") ? Sort.Direction.ASC : Sort.Direction.DESC;
         Pageable pageable = PageRequest.of(page, size, Sort.by(sortDirection, sort));
 
-        Page<TicketResponseDTO> ticketPage = ticketService.getAllTickets(pageable);
+        Page<TicketResponseDTO> ticketPage = ticketService.getAllTickets(pageable, includeClosed);
 
         Map<String, Object> response = new HashMap<>();
         response.put("content", ticketPage.getContent());
@@ -131,6 +133,22 @@ public class MaintenanceTicketController {
         Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt"));
         Page<TicketResponseDTO> tickets = ticketService.getTicketsByUser(userId, pageable);
         return ResponseEntity.ok(tickets);
+    }
+
+    /**
+     * DELETE /api/tickets/user/{userId}/closed — Remove all CLOSED tickets for that user (owner only).
+     */
+    @DeleteMapping("/user/{userId}/closed")
+    public ResponseEntity<Map<String, Object>> deleteMyClosedTickets(
+            @PathVariable Long userId,
+            @RequestHeader(value = "X-User-Email", defaultValue = "") String userEmail,
+            @RequestHeader(value = "X-User-Role", defaultValue = "USER") String role) {
+
+        logger.info("DELETE /api/tickets/user/{}/closed - email: {}, role: {}", userId, userEmail, role);
+        long removed = ticketService.deleteClosedTicketsForUser(userId, userEmail, role);
+        Map<String, Object> body = new HashMap<>();
+        body.put("deleted", removed);
+        return ResponseEntity.ok(body);
     }
 
     /**

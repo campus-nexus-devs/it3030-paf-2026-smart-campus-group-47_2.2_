@@ -20,6 +20,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 /**
  * Service class for Maintenance Tickets.
@@ -95,11 +96,15 @@ public class MaintenanceTicketService {
     }
 
     /**
-     * Get all tickets with pagination
+     * Get all tickets with pagination.
+     * By default excludes {@link TicketStatus#CLOSED} so admin/technician lists match an actionable queue;
+     * set {@code includeClosed} true to include closed tickets (audit).
      */
-    public Page<TicketResponseDTO> getAllTickets(Pageable pageable) {
-        logger.debug("Fetching all tickets with pagination");
-        Page<MaintenanceTicket> ticketPage = ticketRepository.findAll(pageable);
+    public Page<TicketResponseDTO> getAllTickets(Pageable pageable, boolean includeClosed) {
+        logger.debug("Fetching all tickets with pagination, includeClosed={}", includeClosed);
+        Page<MaintenanceTicket> ticketPage = includeClosed
+                ? ticketRepository.findAll(pageable)
+                : ticketRepository.findByStatusNotIn(List.of(TicketStatus.CLOSED), pageable);
         return ticketPage.map(this::convertToResponseDTO);
     }
 
@@ -259,6 +264,27 @@ public class MaintenanceTicketService {
 
         auditLogService.log("DELETE_TICKET", userEmail,
                 "Ticket ID " + id + " was deleted");
+    }
+
+    /**
+     * Remove all CLOSED tickets for a user (owner only). Keeps admin/technician lists clean after users archive.
+     */
+    @Transactional
+    public long deleteClosedTicketsForUser(Long userId, String userEmail, String role) {
+        if (!"USER".equals(role)) {
+            throw new RuntimeException("Only regular users can clear their closed tickets");
+        }
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new RuntimeException("User not found with ID: " + userId));
+        if (userEmail == null || !userEmail.equalsIgnoreCase(user.getEmail())) {
+            throw new RuntimeException("You can only clear tickets for your own account");
+        }
+        long removed = ticketRepository.deleteByUserIdAndStatus(userId, TicketStatus.CLOSED);
+        if (removed > 0) {
+            auditLogService.log("CLEAR_CLOSED_TICKETS", userEmail,
+                    "Removed " + removed + " closed ticket(s) for user ID " + userId);
+        }
+        return removed;
     }
 
     /**

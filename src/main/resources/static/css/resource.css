@@ -350,6 +350,14 @@ td {
     min-width: 0;
 }
 
+.bookings-filter-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 10px;
+    align-items: center;
+    align-self: end;
+}
+
 .bookings-filter-clear {
     padding-left: 16px;
     padding-right: 16px;
@@ -629,6 +637,28 @@ td {
     border-top: 1px solid var(--border);
     font-size: 12px;
     color: var(--muted);
+}
+
+.booking-card-actions {
+    margin-top: 14px;
+    padding-top: 14px;
+    border-top: 1px solid var(--border);
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px 14px;
+}
+
+.booking-card-actions .secondary {
+    flex-shrink: 0;
+}
+
+.booking-card-actions__hint {
+    font-size: 12px;
+    line-height: 1.4;
+    color: var(--muted);
+    flex: 1 1 12rem;
+    min-width: 0;
 }
 
 .visually-hidden {

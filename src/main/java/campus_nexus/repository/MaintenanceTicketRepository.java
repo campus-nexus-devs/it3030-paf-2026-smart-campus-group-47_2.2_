@@ -12,6 +12,7 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.time.LocalDateTime;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
@@ -40,6 +41,10 @@ public interface MaintenanceTicketRepository extends JpaRepository<MaintenanceTi
     List<MaintenanceTicket> findByStatus(TicketStatus status);
 
     long countByStatus(TicketStatus status);
+
+    Page<MaintenanceTicket> findByStatusNotIn(Collection<TicketStatus> statuses, Pageable pageable);
+
+    long deleteByUserIdAndStatus(Long userId, TicketStatus status);
 
     // ==================== Priority-Based Queries ====================
 

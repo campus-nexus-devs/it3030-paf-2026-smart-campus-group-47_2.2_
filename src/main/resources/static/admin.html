@@ -56,6 +56,10 @@
                         <p id="pending-bookings" class="admin-stat-value">0</p>
                     </article>
                     <article class="admin-stat-card">
+                        <p class="admin-stat-label">Open maintenance tickets</p>
+                        <p id="open-tickets" class="admin-stat-value">0</p>
+                    </article>
+                    <article class="admin-stat-card">
                         <p class="admin-stat-label">Logged In Users</p>
                         <p class="admin-stat-value">1</p>
                     </article>
@@ -82,6 +86,23 @@
 <script>
     const totalResources = document.getElementById("total-resources");
     const pendingBookingsEl = document.getElementById("pending-bookings");
+    const openTicketsEl = document.getElementById("open-tickets");
+
+    async function refreshOpenTicketsCount() {
+        if (!openTicketsEl) return;
+        try {
+            const res = await fetch("/api/tickets?page=0&size=1&sort=createdAt&direction=desc");
+            if (!res.ok) {
+                openTicketsEl.textContent = "—";
+                return;
+            }
+            const data = await res.json();
+            const n = typeof data.totalItems === "number" ? data.totalItems : 0;
+            openTicketsEl.textContent = String(n);
+        } catch {
+            openTicketsEl.textContent = "—";
+        }
+    }
 
     async function refreshPendingCount() {
         try {
@@ -112,6 +133,7 @@
                     totalResources.textContent = "0";
                 });
             refreshPendingCount();
+            refreshOpenTicketsCount();
         } catch (_) {
             localStorage.removeItem("smartCampusUser");
             if (window.SmartCampusResourceApi && typeof window.SmartCampusResourceApi.clearCredentials === "function") {
