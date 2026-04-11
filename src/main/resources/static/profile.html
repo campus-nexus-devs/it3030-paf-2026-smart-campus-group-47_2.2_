@@ -21,19 +21,27 @@
         <h2>My Profile</h2>
         <p class="subtitle">Logged in user details</p>
 
-        <div class="profile-avatar-top">
-            <img id="profile-preview" class="profile-avatar" src="https://via.placeholder.com/140?text=Profile" alt="Profile image">
-            <button id="avatar-edit-btn" class="avatar-edit-btn" type="button" aria-label="Update profile image">&#9998;</button>
-        </div>
+        <div class="profile-card__body">
+            <div class="profile-card__column profile-card__column--details">
+                <div id="profile-details" class="grid profile-grid"></div>
+                <p id="profile-status" class="status-text"></p>
 
-        <div id="profile-details" class="grid profile-grid"></div>
-        <p id="profile-status" class="status-text"></p>
+                <div class="actions">
+                    <button id="edit-profile-btn" type="button">Edit Profile</button>
+                    <button id="save-profile-btn" type="button" class="hidden">Update Profile</button>
+                    <a class="btn-secondary" href="/">Back to Home</a>
+                    <button id="logout-btn" type="button">Log Out</button>
+                </div>
+            </div>
 
-        <div class="actions">
-            <button id="edit-profile-btn" type="button">Edit Profile</button>
-            <button id="save-profile-btn" type="button" class="hidden">Update Profile</button>
-            <a class="btn-secondary" href="/">Back to Home</a>
-            <button id="logout-btn" type="button">Log Out</button>
+            <div class="profile-card__column profile-card__column--photo">
+                <div class="profile-avatar-top">
+                    <div class="profile-avatar-wrap">
+                        <img id="profile-preview" class="profile-avatar" src="https://via.placeholder.com/140?text=Profile" alt="Profile image">
+                        <button id="avatar-edit-btn" class="avatar-edit-btn" type="button" aria-label="Update profile image">&#9998;</button>
+                    </div>
+                </div>
+            </div>
         </div>
     </section>
 

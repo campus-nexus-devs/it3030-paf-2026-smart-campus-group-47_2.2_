@@ -21,6 +21,7 @@
   function initSiteHeaderAuth() {
     var accountLink = document.getElementById("account-link");
     var adminNavLink = document.getElementById("admin-nav-link");
+    var navBookingLink = document.getElementById("nav-booking-link");
     if (!accountLink) return;
 
     var userRaw = localStorage.getItem("smartCampusUser");
@@ -36,15 +37,21 @@
         if (adminNavLink && user.role !== "ADMIN") {
           adminNavLink.style.display = "none";
         }
+        if (navBookingLink) {
+          var hideBooking = user.role === "ADMIN" || user.role === "TECHNICIAN";
+          navBookingLink.style.display = hideBooking ? "none" : "";
+        }
       } catch (_) {
         localStorage.removeItem("smartCampusUser");
         if (window.SmartCampusResourceApi && typeof window.SmartCampusResourceApi.clearCredentials === "function") {
           window.SmartCampusResourceApi.clearCredentials();
         }
         if (adminNavLink) adminNavLink.style.display = "none";
+        if (navBookingLink) navBookingLink.style.display = "none";
       }
     } else {
       if (adminNavLink) adminNavLink.style.display = "none";
+      if (navBookingLink) navBookingLink.style.display = "none";
     }
   }
 
