@@ -22,6 +22,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
+import java.util.Arrays;
 import java.util.List;
 
 /**
@@ -241,12 +242,21 @@ public class BookingService {
         Booking booking = bookingRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Booking not found with ID: " + id));
 
-        // Can only cancel PENDING or APPROVED bookings
+        if (userEmail == null || userEmail.isBlank()) {
+            throw new RuntimeException("User email is required to cancel a booking");
+        }
+        if (!booking.getUser().getEmail().equalsIgnoreCase(userEmail.trim())) {
+            throw new RuntimeException("You can only cancel your own bookings");
+        }
+
         if (booking.getStatus() == BookingStatus.CANCELLED) {
             throw new RuntimeException("Booking is already cancelled");
         }
         if (booking.getStatus() == BookingStatus.REJECTED) {
             throw new RuntimeException("Cannot cancel a rejected booking");
+        }
+        if (booking.getStatus() != BookingStatus.PENDING && booking.getStatus() != BookingStatus.APPROVED) {
+            throw new RuntimeException("Only pending or approved bookings can be cancelled");
         }
 
         booking.setStatus(BookingStatus.CANCELLED);
@@ -260,6 +270,34 @@ public class BookingService {
         );
 
         logger.info("Booking ID: {} cancelled successfully", id);
+    }
+
+    /**
+     * Remove all APPROVED, REJECTED, and CANCELLED bookings for a user. PENDING requests are kept.
+     */
+    @Transactional
+    public int deleteUserBookingHistoryExceptPending(Long userId, String userEmail) {
+        if (userEmail == null || userEmail.isBlank()) {
+            throw new RuntimeException("User email is required");
+        }
+        User owner = userRepository.findById(userId)
+                .orElseThrow(() -> new RuntimeException("User not found with ID: " + userId));
+        if (!owner.getEmail().equalsIgnoreCase(userEmail.trim())) {
+            throw new RuntimeException("You can only clear your own bookings");
+        }
+        List<BookingStatus> removable = Arrays.asList(
+                BookingStatus.APPROVED,
+                BookingStatus.REJECTED,
+                BookingStatus.CANCELLED);
+        int removed = bookingRepository.deleteByUserIdAndStatusIn(userId, removable);
+        if (removed > 0) {
+            auditLogService.log(
+                    "CLEAR_BOOKING_HISTORY",
+                    userEmail,
+                    "Deleted " + removed + " booking(s) in statuses APPROVED/REJECTED/CANCELLED for user ID " + userId);
+        }
+        logger.info("Cleared {} non-pending bookings for user {}", removed, userId);
+        return removed;
     }
 
     /**

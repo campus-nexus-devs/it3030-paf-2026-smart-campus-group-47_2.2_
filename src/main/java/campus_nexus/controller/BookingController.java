@@ -81,6 +81,21 @@ public class BookingController {
     }
 
     /**
+     * DELETE /api/bookings/user/{userId}/history — Remove APPROVED, REJECTED, and CANCELLED for that user (owner only). PENDING kept.
+     */
+    @DeleteMapping("/user/{userId}/history")
+    public ResponseEntity<Map<String, Object>> clearUserBookingHistory(
+            @PathVariable Long userId,
+            @RequestHeader(value = "X-User-Email", defaultValue = "") String userEmail) {
+
+        logger.info("DELETE /api/bookings/user/{}/history — email: {}", userId, userEmail);
+        int deleted = bookingService.deleteUserBookingHistoryExceptPending(userId, userEmail);
+        Map<String, Object> body = new HashMap<>();
+        body.put("deleted", deleted);
+        return ResponseEntity.ok(body);
+    }
+
+    /**
      * GET /api/bookings/{id} - Get single booking by ID
      */
     @GetMapping("/{id}")

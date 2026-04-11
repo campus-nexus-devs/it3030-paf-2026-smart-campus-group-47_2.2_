@@ -12,6 +12,7 @@ import org.springframework.stereotype.Repository;
 
 import java.time.LocalDate;
 import java.time.LocalTime;
+import java.util.Collection;
 import java.util.List;
 
 @Repository
@@ -20,6 +21,10 @@ public interface BookingRepository extends JpaRepository<Booking, Long> {
     @Modifying
     @Query("DELETE FROM Booking b WHERE b.resource.id = :resourceId")
     void deleteByResourceId(@Param("resourceId") Long resourceId);
+
+    @Modifying
+    @Query("DELETE FROM Booking b WHERE b.user.id = :userId AND b.status IN :statuses")
+    int deleteByUserIdAndStatusIn(@Param("userId") Long userId, @Param("statuses") Collection<BookingStatus> statuses);
 
     /**
      * Check for conflicting bookings on the same resource, date, and overlapping time range

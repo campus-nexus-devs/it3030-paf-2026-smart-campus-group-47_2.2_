@@ -33,5 +33,5 @@ public class TicketRequestDTO {
     private String contactEmail;
 
     @Size(max = 3, message = "Maximum 3 images allowed")
-    private List<@NotBlank String> imageUrls = new ArrayList<>();
+    private List<@NotBlank @Size(max = 12_000_000, message = "Each image is too large") String> imageUrls = new ArrayList<>();
 }

@@ -74,7 +74,7 @@
                 <div class="bookings-filters">
                     <label>Status
                         <select id="filter-status" disabled>
-                            <option value="">All statuses</option>
+                            <option value="">All (except cancelled)</option>
                             <option value="PENDING">Pending</option>
                             <option value="APPROVED">Approved</option>
                             <option value="REJECTED">Rejected</option>
@@ -87,7 +87,10 @@
                     <label>To
                         <input type="date" id="filter-date-to" disabled aria-label="Filter to booking date">
                     </label>
-                    <button type="button" class="secondary bookings-filter-clear" id="filter-clear" disabled>Clear</button>
+                    <div class="bookings-filter-actions">
+                        <button type="button" class="secondary bookings-filter-clear" id="filter-clear" disabled>Reset filters</button>
+                        <button type="button" class="secondary bookings-history-clear" id="booking-history-clear" disabled title="Removes approved, rejected, and cancelled bookings from your account. Pending requests stay.">Clear history</button>
+                    </div>
                 </div>
                 <div class="bookings-search-row">
                     <label for="bookings-search" class="visually-hidden">Search your bookings</label>
@@ -128,6 +131,7 @@
         const filterDateFromEl = document.getElementById("filter-date-from");
         const filterDateToEl = document.getElementById("filter-date-to");
         const filterClearBtn = document.getElementById("filter-clear");
+        const bookingHistoryClearBtn = document.getElementById("booking-history-clear");
         const resultHintEl = document.getElementById("bookings-result-hint");
 
         let allBookings = [];
@@ -274,8 +278,10 @@
         }
 
         function matchesStatusFilter(b, statusValue) {
-            if (!statusValue) return true;
             const s = (b.status || "").toUpperCase();
+            if (!statusValue) {
+                return s !== "CANCELLED";
+            }
             return s === statusValue.toUpperCase();
         }
 
@@ -315,8 +321,15 @@
                 return;
             }
             const active = hasActiveFilters();
-            if (!active && filteredCount === total) {
-                resultHintEl.textContent = total + " reservation" + (total === 1 ? "" : "s");
+            const nCancelled = allBookings.filter(function (b) {
+                return (b.status || "").toUpperCase() === "CANCELLED";
+            }).length;
+            if (!active) {
+                let t = filteredCount + " reservation" + (filteredCount === 1 ? "" : "s");
+                if (nCancelled > 0 && !filterStatusEl.value) {
+                    t += ". Cancelled bookings are hidden—choose “Cancelled” in Status to see them.";
+                }
+                resultHintEl.textContent = t;
                 resultHintEl.classList.remove("hidden");
                 return;
             }
@@ -331,6 +344,7 @@
             filterDateFromEl.disabled = !enabled;
             filterDateToEl.disabled = !enabled;
             filterClearBtn.disabled = !enabled;
+            if (bookingHistoryClearBtn) bookingHistoryClearBtn.disabled = !enabled;
         }
 
         function clearFilters() {
@@ -391,6 +405,17 @@
                 (b.status || "").toUpperCase() === "REJECTED" && b.rejectionReason
                     ? '<div class="booking-detail-reject"><strong>Reason</strong><p>' + escapeHtml(b.rejectionReason) + "</p></div>"
                     : "";
+            const stUp = (b.status || "").toUpperCase();
+            let actionBlock = "";
+            if (stUp === "PENDING" && b.id != null) {
+                actionBlock =
+                    '<div class="booking-card-actions">' +
+                    '<button type="button" class="secondary" data-booking-cancel="' +
+                    String(Number(b.id)) +
+                    '">Close</button>' +
+                    '<span class="booking-card-actions__hint">Withdraw this request before an admin reviews it.</span>' +
+                    "</div>";
+            }
             const footParts = [];
             if (b.id != null) footParts.push("Booking #" + b.id);
             const ca = fmtCreatedAt(b.createdAt);
@@ -432,6 +457,7 @@
                 escapeHtml(purpose) +
                 "</p></div>" +
                 rejectBlock +
+                actionBlock +
                 foot +
                 "</div></div></article>"
             );
@@ -446,9 +472,17 @@
                     bookingsCardsEl.innerHTML =
                         '<p class="bookings-empty-msg">No bookings yet. Browse resources and submit a request — it will show up here.</p>';
                 } else {
-                    filterEmptyEl.textContent = hasActiveFilters()
-                        ? "No bookings match your current filters. Try clearing filters or adjusting the search."
-                        : "No bookings to show.";
+                    if (hasActiveFilters()) {
+                        filterEmptyEl.textContent =
+                            "No bookings match your current filters. Try clearing filters or adjusting the search.";
+                    } else {
+                        const allCancelled = allBookings.every(function (b) {
+                            return (b.status || "").toUpperCase() === "CANCELLED";
+                        });
+                        filterEmptyEl.textContent = allCancelled
+                            ? "No active reservations. Withdrawn or cleared bookings are hidden—choose “Cancelled” in Status to review them."
+                            : "No bookings to show.";
+                    }
                     filterEmptyEl.classList.remove("hidden");
                     bookingsCardsEl.innerHTML = "";
                 }
@@ -497,6 +531,45 @@
         filterDateToEl.addEventListener("change", onFilterChange);
         filterClearBtn.addEventListener("click", clearFilters);
 
+        if (bookingHistoryClearBtn) {
+            bookingHistoryClearBtn.addEventListener("click", async function () {
+                if (!resolvedUserId) return;
+                const msg =
+                    "Remove all approved, rejected, and cancelled bookings from your history?\n\n" +
+                    "Pending requests will stay. This cannot be undone.";
+                if (!window.confirm(msg)) return;
+                const email = user && user.email ? String(user.email).trim() : "";
+                if (!email) {
+                    loadStatusEl.textContent = "Your account has no email on file.";
+                    return;
+                }
+                loadStatusEl.textContent = "Clearing history…";
+                try {
+                    const res = await fetch(
+                        "/api/bookings/user/" + encodeURIComponent(String(resolvedUserId)) + "/history",
+                        {
+                            method: "DELETE",
+                            headers: { "X-User-Email": email }
+                        }
+                    );
+                    const body = await res.json().catch(function () {
+                        return {};
+                    });
+                    if (!res.ok) {
+                        loadStatusEl.textContent = body.message || "Could not clear history.";
+                        return;
+                    }
+                    const n = typeof body.deleted === "number" ? body.deleted : 0;
+                    loadStatusEl.textContent = n
+                        ? "Removed " + n + " booking(s). Pending requests are unchanged."
+                        : "No approved, rejected, or cancelled bookings to remove.";
+                    await loadMyBookings(resolvedUserId);
+                } catch {
+                    loadStatusEl.textContent = "Network error. Try again.";
+                }
+            });
+        }
+
         const user = getCurrentUser();
         const resolvedUserId = (function () {
             if (!user) return null;
@@ -544,6 +617,46 @@
         }
 
         loadMyBookings(resolvedUserId);
+
+        bookingsCardsEl.addEventListener("click", async function (ev) {
+            const btn = ev.target.closest("button[data-booking-cancel]");
+            if (!btn) return;
+            const id = Number(btn.getAttribute("data-booking-cancel"));
+            if (!Number.isFinite(id) || id < 1) return;
+            if (!window.confirm(
+                "Withdraw this pending booking? You can submit a new request later if you need to."
+            )) return;
+            const email = user && user.email ? String(user.email).trim() : "";
+            if (!email) {
+                loadStatusEl.textContent = "Your account has no email on file; cannot cancel booking.";
+                return;
+            }
+            loadStatusEl.textContent = "Updating booking…";
+            try {
+                const res = await fetch("/api/bookings/" + encodeURIComponent(String(id)), {
+                    method: "DELETE",
+                    headers: { "X-User-Email": email }
+                });
+                if (!res.ok) {
+                    let errMsg = "Could not update booking.";
+                    const t = await res.text();
+                    if (t) {
+                        try {
+                            const j = JSON.parse(t);
+                            if (j.message) errMsg = j.message;
+                        } catch {
+                            if (t.length < 200) errMsg = t;
+                        }
+                    }
+                    loadStatusEl.textContent = errMsg;
+                    return;
+                }
+                loadStatusEl.textContent = "";
+                await loadMyBookings(resolvedUserId);
+            } catch {
+                loadStatusEl.textContent = "Network error. Try again.";
+            }
+        });
 
         function normalizeTimeForApi(value) {
             if (!value) return null;
