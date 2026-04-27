@@ -1,10 +1,14 @@
 spring:
   application:
-    name: it3030-paf-2026-smart-campus
+    name: campus-nexus
+
+  codec:
+    max-in-memory-size: 25MB
 
   # Database Configuration
   datasource:
-    url: jdbc:mysql://localhost:3306/campus_nexus_db?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true
+    # maxAllowedPacket: raise client buffer; server must also allow large packets (see my.cnf max_allowed_packet).
+    url: jdbc:mysql://localhost:3306/campus_nexus_db?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true&maxAllowedPacket=67108864
     username: root
     password:
     driver-class-name: com.mysql.cj.jdbc.Driver
@@ -13,11 +17,17 @@ spring:
   jpa:
     hibernate:
       ddl-auto: update
+    defer-datasource-initialization: true
     show-sql: true
     properties:
       hibernate:
         format_sql: true
         dialect: org.hibernate.dialect.MySQL8Dialect
+
+  sql:
+    init:
+      mode: always
+      continue-on-error: true
 
   # OAuth2 Configuration (Google Login)
   security:
@@ -47,6 +57,9 @@ spring:
 
 server:
   port: 8080
+  tomcat:
+    max-http-form-post-size: 25MB
+    max-swallow-size: 25MB
   error:
     include-message: always
     include-binding-errors: always
@@ -60,6 +73,17 @@ logging:
 
 # JWT Configuration (alternative flat structure)
 app:
+  resource-admin:
+    username: admin
+    password: 123456
+  portal-admin:
+    email: admin@gmail.com
+    password: 12345
+    full-name: System Admin
+  technician:
+    email: tech@gmail.com
+    password: 12345
+    full-name: Technician User
   jwt:
     secret: c8f7e5d3b1a9c7e5f3d1b9a7c5e3f1d9b7a5c3e1f9d7b5a3c1e9f7d5b3a1c9e7f5
     expiration-ms: 86400000

@@ -5,6 +5,7 @@ import campus_nexus.dto.response.TicketResponseDTO;
 import campus_nexus.enums.PriorityLevel;
 import campus_nexus.enums.TicketStatus;
 import campus_nexus.service.MaintenanceTicketService;
+import campus_nexus.service.TicketStreamService;
 import jakarta.validation.Valid;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -15,8 +16,10 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import java.time.LocalDateTime;
 import java.util.HashMap;
@@ -39,6 +42,31 @@ public class MaintenanceTicketController {
     @Autowired
     private MaintenanceTicketService ticketService;
 
+    @Autowired
+    private TicketStreamService ticketStreamService;
+
+    /**
+     * GET /api/tickets/stream — SSE for real-time ticket updates (owner or admin).
+     * EventSource cannot send headers; use the same query convention as the rest of the demo UI.
+     */
+    @GetMapping(value = "/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    public SseEmitter ticketStream(
+            @RequestParam(required = false) Long forUserId,
+            @RequestParam(required = false, defaultValue = "false") boolean watchAll,
+            @RequestParam(required = false, defaultValue = "USER") String userRole) {
+
+        if (watchAll) {
+            if (!"ADMIN".equalsIgnoreCase(userRole)) {
+                throw new RuntimeException("Admin role required for watch-all ticket stream");
+            }
+            return ticketStreamService.subscribeAdmin();
+        }
+        if (forUserId == null) {
+            throw new RuntimeException("forUserId is required when watchAll is false");
+        }
+        return ticketStreamService.subscribeUser(forUserId);
+    }
+
     /**
      * POST /api/tickets - Create a new maintenance ticket
      * Supports priority level and up to 3 image references
@@ -59,14 +87,16 @@ public class MaintenanceTicketController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size,
             @RequestParam(defaultValue = "createdAt") String sort,
-            @RequestParam(defaultValue = "desc") String direction) {
+            @RequestParam(defaultValue = "desc") String direction,
+            @RequestParam(defaultValue = "false") boolean includeClosed) {
 
-        logger.info("GET /api/tickets - page: {}, size: {}, sort: {}, direction: {}", page, size, sort, direction);
+        logger.info("GET /api/tickets - page: {}, size: {}, sort: {}, direction: {}, includeClosed: {}",
+                page, size, sort, direction, includeClosed);
 
         Sort.Direction sortDirection = direction.equalsIgnoreCase("asc") ? Sort.Direction.ASC : Sort.Direction.DESC;
         Pageable pageable = PageRequest.of(page, size, Sort.by(sortDirection, sort));
 
-        Page<TicketResponseDTO> ticketPage = ticketService.getAllTickets(pageable);
+        Page<TicketResponseDTO> ticketPage = ticketService.getAllTickets(pageable, includeClosed);
 
         Map<String, Object> response = new HashMap<>();
         response.put("content", ticketPage.getContent());
@@ -103,6 +133,22 @@ public class MaintenanceTicketController {
         Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt"));
         Page<TicketResponseDTO> tickets = ticketService.getTicketsByUser(userId, pageable);
         return ResponseEntity.ok(tickets);
+    }
+
+    /**
+     * DELETE /api/tickets/user/{userId}/closed — Remove all CLOSED tickets for that user (owner only).
+     */
+    @DeleteMapping("/user/{userId}/closed")
+    public ResponseEntity<Map<String, Object>> deleteMyClosedTickets(
+            @PathVariable Long userId,
+            @RequestHeader(value = "X-User-Email", defaultValue = "") String userEmail,
+            @RequestHeader(value = "X-User-Role", defaultValue = "USER") String role) {
+
+        logger.info("DELETE /api/tickets/user/{}/closed - email: {}, role: {}", userId, userEmail, role);
+        long removed = ticketService.deleteClosedTicketsForUser(userId, userEmail, role);
+        Map<String, Object> body = new HashMap<>();
+        body.put("deleted", removed);
+        return ResponseEntity.ok(body);
     }
 
     /**

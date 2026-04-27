@@ -6,6 +6,7 @@ import campus_nexus.entity.Booking;
 import campus_nexus.entity.Resource;
 import campus_nexus.entity.User;
 import campus_nexus.enums.BookingStatus;
+import campus_nexus.enums.NotificationType;
 import campus_nexus.repository.BookingRepository;
 import campus_nexus.repository.ResourceRepository;
 import campus_nexus.repository.UserRepository;
@@ -21,6 +22,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
+import java.util.Arrays;
 import java.util.List;
 
 /**
@@ -44,6 +46,9 @@ public class BookingService {
 
     @Autowired
     private AuditLogService auditLogService;
+
+    @Autowired
+    private NotificationService notificationService;
 
     /**
      * Get all bookings with pagination (Admin only)
@@ -194,7 +199,35 @@ public class BookingService {
                 "Booking ID " + id + " status changed to " + status
         );
 
+        notifyBookingUserOfDecision(updatedBooking, status, reason);
+
         return convertToResponseDTO(updatedBooking);
+    }
+
+    private void notifyBookingUserOfDecision(Booking booking, BookingStatus status, String reason) {
+        Long userId = booking.getUser().getId();
+        String refId = String.valueOf(booking.getId());
+        String resourceName = booking.getResource().getName();
+        try {
+            if (status == BookingStatus.APPROVED) {
+                String message = String.format(
+                        "Your booking for \"%s\" on %s from %s to %s was approved.",
+                        resourceName,
+                        booking.getBookingDate(),
+                        booking.getStartTime(),
+                        booking.getEndTime());
+                notificationService.createNotification(userId, NotificationType.BOOKING_APPROVED, message, refId);
+            } else if (status == BookingStatus.REJECTED) {
+                String message = String.format(
+                        "Your booking for \"%s\" on %s was rejected. Reason: %s",
+                        resourceName,
+                        booking.getBookingDate(),
+                        reason != null ? reason.trim() : "");
+                notificationService.createNotification(userId, NotificationType.BOOKING_REJECTED, message, refId);
+            }
+        } catch (Exception e) {
+            logger.warn("Could not notify user {} about booking {} status {}: {}", userId, booking.getId(), status, e.getMessage());
+        }
     }
 
     /**
@@ -209,12 +242,21 @@ public class BookingService {
         Booking booking = bookingRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Booking not found with ID: " + id));
 
-        // Can only cancel PENDING or APPROVED bookings
+        if (userEmail == null || userEmail.isBlank()) {
+            throw new RuntimeException("User email is required to cancel a booking");
+        }
+        if (!booking.getUser().getEmail().equalsIgnoreCase(userEmail.trim())) {
+            throw new RuntimeException("You can only cancel your own bookings");
+        }
+
         if (booking.getStatus() == BookingStatus.CANCELLED) {
             throw new RuntimeException("Booking is already cancelled");
         }
         if (booking.getStatus() == BookingStatus.REJECTED) {
             throw new RuntimeException("Cannot cancel a rejected booking");
+        }
+        if (booking.getStatus() != BookingStatus.PENDING && booking.getStatus() != BookingStatus.APPROVED) {
+            throw new RuntimeException("Only pending or approved bookings can be cancelled");
         }
 
         booking.setStatus(BookingStatus.CANCELLED);
@@ -228,6 +270,34 @@ public class BookingService {
         );
 
         logger.info("Booking ID: {} cancelled successfully", id);
+    }
+
+    /**
+     * Remove all APPROVED, REJECTED, and CANCELLED bookings for a user. PENDING requests are kept.
+     */
+    @Transactional
+    public int deleteUserBookingHistoryExceptPending(Long userId, String userEmail) {
+        if (userEmail == null || userEmail.isBlank()) {
+            throw new RuntimeException("User email is required");
+        }
+        User owner = userRepository.findById(userId)
+                .orElseThrow(() -> new RuntimeException("User not found with ID: " + userId));
+        if (!owner.getEmail().equalsIgnoreCase(userEmail.trim())) {
+            throw new RuntimeException("You can only clear your own bookings");
+        }
+        List<BookingStatus> removable = Arrays.asList(
+                BookingStatus.APPROVED,
+                BookingStatus.REJECTED,
+                BookingStatus.CANCELLED);
+        int removed = bookingRepository.deleteByUserIdAndStatusIn(userId, removable);
+        if (removed > 0) {
+            auditLogService.log(
+                    "CLEAR_BOOKING_HISTORY",
+                    userEmail,
+                    "Deleted " + removed + " booking(s) in statuses APPROVED/REJECTED/CANCELLED for user ID " + userId);
+        }
+        logger.info("Cleared {} non-pending bookings for user {}", removed, userId);
+        return removed;
     }
 
     /**

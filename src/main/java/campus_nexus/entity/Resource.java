@@ -1,5 +1,6 @@
 package campus_nexus.entity;
 
+import campus_nexus.enums.ResourceReservationCategory;
 import campus_nexus.enums.ResourceType;
 import jakarta.persistence.*;
 import lombok.Data;
@@ -9,6 +10,7 @@ import java.time.LocalDateTime;
 @Data
 @Table(name = "resources")
 public class Resource {
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -20,16 +22,26 @@ public class Resource {
     @Column(nullable = false)
     private ResourceType type;
 
-    private Integer capacity;
-    private String location;
-    private String description;
-    private Boolean hasWifi;
-    private Boolean hasAc;
-    private Boolean hasProjector;
+    @Enumerated(EnumType.STRING)
+    private ResourceReservationCategory category;
 
-    // THIS FIELD IS CRITICAL - MAKE SURE IT EXISTS
+    private Integer capacity;
+
+    private String location;
+
+    @Column(length = 500)
+    private String description;
+
     @Column(nullable = false)
-    private String status = "ACTIVE";
+    private Boolean hasWifi = false;
+
+    @Column(nullable = false)
+    private Boolean hasAc = false;
+
+    private Boolean hasProjector = false;
+
+    @Column(nullable = false)
+    private String status = "ACTIVE";  // ACTIVE, OUT_OF_SERVICE, MAINTENANCE
 
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;
@@ -37,6 +49,7 @@ public class Resource {
     @Column(nullable = false)
     private LocalDateTime updatedAt;
 
+    // Auto-set timestamps before persisting
     @PrePersist
     protected void onCreate() {
         createdAt = LocalDateTime.now();
@@ -45,10 +58,12 @@ public class Resource {
         if (hasWifi == null) hasWifi = false;
         if (hasAc == null) hasAc = false;
         if (hasProjector == null) hasProjector = false;
+        if (category == null) category = ResourceReservationCategory.HALL_LAB;
     }
 
     @PreUpdate
     protected void onUpdate() {
         updatedAt = LocalDateTime.now();
+        if (category == null) category = ResourceReservationCategory.HALL_LAB;
     }
 }

@@ -11,7 +11,6 @@ import org.hibernate.annotations.UpdateTimestamp;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 
 /**
@@ -57,19 +56,27 @@ public class MaintenanceTicket {
     private String resolutionNotes;  // Notes from technician after resolving
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
+    @Column(nullable = false, length = 16, columnDefinition = "VARCHAR(16)")
     private PriorityLevel priority;
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
+    @Column(nullable = false, length = 32, columnDefinition = "VARCHAR(32)")
     private TicketStatus status;
 
     private String contactPhone;  // Preferred contact number
     private String contactEmail;  // Preferred contact email
 
-    // Fields for storing image URLs/Paths (Max 3 as requested)
+    // Max 3 attachments: HTTPS URLs and/or data URLs from uploaded images (LONGTEXT)
+    @Lob
+    @Column(columnDefinition = "LONGTEXT")
     private String imageUrl1;
+
+    @Lob
+    @Column(columnDefinition = "LONGTEXT")
     private String imageUrl2;
+
+    @Lob
+    @Column(columnDefinition = "LONGTEXT")
     private String imageUrl3;
 
     private String rejectionReason;  // If admin rejects the ticket

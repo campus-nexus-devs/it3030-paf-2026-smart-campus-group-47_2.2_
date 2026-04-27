@@ -1,6 +1,7 @@
 package campus_nexus.service;
 
 import campus_nexus.dto.request.TicketRequestDTO;
+import campus_nexus.dto.response.TicketActivityNotificationDTO;
 import campus_nexus.dto.response.TicketResponseDTO;
 import campus_nexus.entity.MaintenanceTicket;
 import campus_nexus.entity.Resource;
@@ -44,6 +45,12 @@ public class MaintenanceTicketService {
 
     @Autowired
     private AuditLogService auditLogService;
+
+    @Autowired
+    private TicketStreamService ticketStreamService;
+
+    @Autowired
+    private NotificationService notificationService;
 
     /**
      * Create a new maintenance ticket with image attachments support
@@ -89,11 +96,15 @@ public class MaintenanceTicketService {
     }
 
     /**
-     * Get all tickets with pagination
+     * Get all tickets with pagination.
+     * By default excludes {@link TicketStatus#CLOSED} so admin/technician lists match an actionable queue;
+     * set {@code includeClosed} true to include closed tickets (audit).
      */
-    public Page<TicketResponseDTO> getAllTickets(Pageable pageable) {
-        logger.debug("Fetching all tickets with pagination");
-        Page<MaintenanceTicket> ticketPage = ticketRepository.findAll(pageable);
+    public Page<TicketResponseDTO> getAllTickets(Pageable pageable, boolean includeClosed) {
+        logger.debug("Fetching all tickets with pagination, includeClosed={}", includeClosed);
+        Page<MaintenanceTicket> ticketPage = includeClosed
+                ? ticketRepository.findAll(pageable)
+                : ticketRepository.findByStatusNotIn(List.of(TicketStatus.CLOSED), pageable);
         return ticketPage.map(this::convertToResponseDTO);
     }
 
@@ -187,7 +198,10 @@ public class MaintenanceTicketService {
         auditLogService.log("UPDATE_TICKET_STATUS", userEmail,
                 "Ticket ID " + id + " status changed from " + oldStatus + " to " + newStatus);
 
-        return convertToResponseDTO(updatedTicket);
+        TicketResponseDTO dto = convertToResponseDTO(updatedTicket);
+        ticketStreamService.publishTicketUpdate(dto);
+        pushTechnicianTicketActivity(dto, role, "Status → " + newStatus.name());
+        return dto;
     }
 
     /**
@@ -206,7 +220,10 @@ public class MaintenanceTicketService {
         auditLogService.log("ADD_RESOLUTION_NOTES", technicianEmail,
                 "Resolution notes added to ticket ID " + id);
 
-        return convertToResponseDTO(updatedTicket);
+        TicketResponseDTO dto = convertToResponseDTO(updatedTicket);
+        ticketStreamService.publishTicketUpdate(dto);
+        pushTicketActivityForOwner(dto, "Resolution notes updated");
+        return dto;
     }
 
     /**
@@ -250,6 +267,27 @@ public class MaintenanceTicketService {
     }
 
     /**
+     * Remove all CLOSED tickets for a user (owner only). Keeps admin/technician lists clean after users archive.
+     */
+    @Transactional
+    public long deleteClosedTicketsForUser(Long userId, String userEmail, String role) {
+        if (!"USER".equals(role)) {
+            throw new RuntimeException("Only regular users can clear their closed tickets");
+        }
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new RuntimeException("User not found with ID: " + userId));
+        if (userEmail == null || !userEmail.equalsIgnoreCase(user.getEmail())) {
+            throw new RuntimeException("You can only clear tickets for your own account");
+        }
+        long removed = ticketRepository.deleteByUserIdAndStatus(userId, TicketStatus.CLOSED);
+        if (removed > 0) {
+            auditLogService.log("CLEAR_CLOSED_TICKETS", userEmail,
+                    "Removed " + removed + " closed ticket(s) for user ID " + userId);
+        }
+        return removed;
+    }
+
+    /**
      * Search tickets with multiple filters (admin dashboard)
      */
     public Page<TicketResponseDTO> searchTickets(
@@ -272,6 +310,33 @@ public class MaintenanceTicketService {
         return ticketPage.map(this::convertToResponseDTO);
     }
 
+    private static final String TECHNICIAN_ROLE = "TECHNICIAN";
+
+    private void pushTechnicianTicketActivity(TicketResponseDTO dto, String role, String actionLabel) {
+        if (!TECHNICIAN_ROLE.equals(role)) {
+            return;
+        }
+        pushTicketActivityForOwner(dto, actionLabel);
+    }
+
+    private void pushTicketActivityForOwner(TicketResponseDTO dto, String actionLabel) {
+        if (dto == null || dto.getUserId() == null) {
+            return;
+        }
+        LocalDateTime eventAt = dto.getUpdatedAt() != null ? dto.getUpdatedAt() : LocalDateTime.now();
+        TicketActivityNotificationDTO activity = TicketActivityNotificationDTO.builder()
+                .ticketId(dto.getId())
+                .ticketOwnerUserId(dto.getUserId())
+                .ticketCreatedAt(dto.getCreatedAt())
+                .eventAt(eventAt)
+                .note(dto.getResolutionNotes())
+                .action(actionLabel)
+                .build();
+        ticketStreamService.publishTicketActivity(activity);
+        notificationService.notifyTicketTechnicianActivity(
+                dto.getUserId(), dto.getId(), dto.getCreatedAt(), eventAt, dto.getResolutionNotes(), actionLabel);
+    }
+
     /**
      * Validate status transition based on workflow rules
      */
@@ -281,9 +346,15 @@ public class MaintenanceTicketService {
             return;
         }
 
-        // Technician can only update to IN_PROGRESS or RESOLVED
+        // Technician can only update to IN_PROGRESS or RESOLVED (no reopening resolved work)
         if ("TECHNICIAN".equals(role)) {
+            if (current == TicketStatus.RESOLVED && next == TicketStatus.IN_PROGRESS) {
+                throw new RuntimeException("Technician cannot change status from RESOLVED to IN_PROGRESS");
+            }
             if (current == TicketStatus.OPEN && next == TicketStatus.IN_PROGRESS) {
+                return;
+            }
+            if (current == TicketStatus.OPEN && next == TicketStatus.RESOLVED) {
                 return;
             }
             if (current == TicketStatus.IN_PROGRESS && next == TicketStatus.RESOLVED) {

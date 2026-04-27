@@ -1,7 +1,10 @@
 package campus_nexus.service;
 
 import campus_nexus.entity.Resource;
+import campus_nexus.enums.ResourceReservationCategory;
 import campus_nexus.enums.ResourceType;
+import campus_nexus.repository.BookingRepository;
+import campus_nexus.repository.MaintenanceTicketRepository;
 import campus_nexus.repository.ResourceRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -23,7 +26,10 @@ public class ResourceService {
     private ResourceRepository resourceRepository;
 
     @Autowired
-    private AuditLogService auditLogService;
+    private BookingRepository bookingRepository;
+
+    @Autowired
+    private MaintenanceTicketRepository maintenanceTicketRepository;
 
     /**
      * Create a new resource
@@ -46,10 +52,6 @@ public class ResourceService {
 
         Resource saved = resourceRepository.save(resource);
         logger.info("Created new resource: {} (ID: {})", saved.getName(), saved.getId());
-
-        // Audit log
-        auditLogService.log("CREATE_RESOURCE", "SYSTEM", "Created resource: " + saved.getName());
-
         return saved;
     }
 
@@ -98,6 +100,9 @@ public class ResourceService {
         // Update fields
         existing.setName(updatedResource.getName());
         existing.setType(updatedResource.getType());
+        if (updatedResource.getCategory() != null) {
+            existing.setCategory(updatedResource.getCategory());
+        }
         existing.setCapacity(updatedResource.getCapacity());
         existing.setLocation(updatedResource.getLocation());
         existing.setDescription(updatedResource.getDescription());
@@ -108,10 +113,6 @@ public class ResourceService {
 
         Resource saved = resourceRepository.save(existing);
         logger.info("Updated resource ID: {} - {}", id, saved.getName());
-
-        // Audit log
-        auditLogService.log("UPDATE_RESOURCE", "SYSTEM", "Updated resource: " + saved.getName());
-
         return saved;
     }
 
@@ -120,17 +121,16 @@ public class ResourceService {
      * @param id Resource ID to delete
      * @throws RuntimeException if resource not found
      */
-    @Transactional
+    @Transactional(readOnly = false)
     public void deleteResource(Long id) {
         if (!resourceRepository.existsById(id)) {
             logger.warn("Cannot delete - resource not found with ID: {}", id);
             throw new RuntimeException("Resource not found with ID: " + id);
         }
+        maintenanceTicketRepository.deleteByResourceId(id);
+        bookingRepository.deleteByResourceId(id);
         resourceRepository.deleteById(id);
-        logger.info("Deleted resource ID: {}", id);
-
-        // Audit log
-        auditLogService.log("DELETE_RESOURCE", "SYSTEM", "Deleted resource ID: " + id);
+        logger.info("Deleted resource ID: {} (removed related tickets and bookings first)", id);
     }
 
     /**
@@ -145,19 +145,27 @@ public class ResourceService {
         resource.setStatus(status);
         Resource saved = resourceRepository.save(resource);
         logger.info("Updated resource {} status to: {}", id, status);
-
-        // Audit log
-        auditLogService.log("UPDATE_RESOURCE_STATUS", "SYSTEM", "Resource ID " + id + " status changed to " + status);
-
         return saved;
     }
 
     /**
      * Advanced search with filters and pagination
+     * @param name Search by name (partial match)
+     * @param type Filter by resource type
+     * @param category Filter by reservation category
+     * @param minCapacity Minimum capacity filter
+     * @param maxCapacity Maximum capacity filter
+     * @param location Filter by location (partial match)
+     * @param status Filter by status (ACTIVE/OUT_OF_SERVICE)
+     * @param hasWifi Filter by WiFi availability
+     * @param hasAc Filter by AC availability
+     * @param pageable Pagination and sorting info
+     * @return Page of resources matching criteria
      */
     public Page<Resource> searchResources(
             String name,
             ResourceType type,
+            ResourceReservationCategory category,
             Integer minCapacity,
             Integer maxCapacity,
             String location,
@@ -166,11 +174,11 @@ public class ResourceService {
             Boolean hasAc,
             Pageable pageable) {
 
-        logger.debug("Searching resources with filters - name: {}, type: {}, minCap: {}, maxCap: {}, location: {}, status: {}, wifi: {}, ac: {}",
-                name, type, minCapacity, maxCapacity, location, status, hasWifi, hasAc);
+        logger.debug("Searching resources with filters - name: {}, type: {}, category: {}, minCap: {}, maxCap: {}, location: {}, status: {}, wifi: {}, ac: {}",
+                name, type, category, minCapacity, maxCapacity, location, status, hasWifi, hasAc);
 
         return resourceRepository.searchWithFilters(
-                name, type, minCapacity, maxCapacity, location, status, hasWifi, hasAc, pageable);
+                name, type, category, minCapacity, maxCapacity, location, status, hasWifi, hasAc, pageable);
     }
 
     /**

@@ -1,6 +1,7 @@
 package campus_nexus.repository;
 
 import campus_nexus.entity.Resource;
+import campus_nexus.enums.ResourceReservationCategory;
 import campus_nexus.enums.ResourceType;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -35,7 +36,8 @@ public interface ResourceRepository extends JpaRepository<Resource, Long> {
      */
     @Query("SELECT r FROM Resource r WHERE " +
             "(:name IS NULL OR LOWER(r.name) LIKE LOWER(CONCAT('%', :name, '%'))) AND " +
-            "(:type IS NULL OR r.type = :type) AND " +
+            "(:resourceType IS NULL OR r.type = :resourceType) AND " +
+            "(:category IS NULL OR r.category = :category) AND " +
             "(:minCapacity IS NULL OR r.capacity >= :minCapacity) AND " +
             "(:maxCapacity IS NULL OR r.capacity <= :maxCapacity) AND " +
             "(:location IS NULL OR LOWER(r.location) LIKE LOWER(CONCAT('%', :location, '%'))) AND " +
@@ -44,7 +46,8 @@ public interface ResourceRepository extends JpaRepository<Resource, Long> {
             "(:hasAc IS NULL OR r.hasAc = :hasAc)")
     Page<Resource> searchWithFilters(
             @Param("name") String name,
-            @Param("type") ResourceType type,
+            @Param("resourceType") ResourceType resourceType,
+            @Param("category") ResourceReservationCategory category,
             @Param("minCapacity") Integer minCapacity,
             @Param("maxCapacity") Integer maxCapacity,
             @Param("location") String location,
